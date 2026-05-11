@@ -1,3 +1,50 @@
+<?php
+session_start();
+
+
+if (isset($_GET['logout']) && $_GET['logout'] == 'true') {
+    session_destroy();
+    header("Location: login.php?message=You have been logged out");
+    exit();
+}
+
+$message = '';
+$error = '';
+
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+
+    require_once 'db_connection.php';
+    
+    $username = trim($_POST['username']);
+    $password = $_POST['password'];
+    
+    if (empty($username) || empty($password)) {
+
+        $error = 'Please fill in all fields';
+    } else {
+        $sql = "SELECT id, username, password FROM sellers WHERE username = ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("s", $username);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        if ($result->num_rows == 1) {
+            $row = $result->fetch_assoc();
+            if (password_verify($password, $row['password'])) {
+                $_SESSION['seller_id'] = $row['id'];
+                $_SESSION['username'] = $row['username'];
+
+                header("Location: seller.php");
+                exit();
+            }
+        }
+
+        $error = 'Invalid username or password';
+        $stmt->close();
+        $conn->close();
+    }
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,6 +52,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Login - Car Sales Platform</title>
 <style>
+
 *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',sans-serif}
 body{
   min-height:100vh;
@@ -162,13 +210,6 @@ input:focus{
 </div>
 
 <?php
-session_start();
-
-if (isset($_GET['logout']) && $_GET['logout'] == 'true') {
-    session_destroy();
-    header("Location: login.php?message=You have been logged out");
-    exit();
-}
 
 if (isset($_GET['message'])) {
     echo '<div class="success-msg">' . htmlspecialchars($_GET['message']) . '</div>';
@@ -177,11 +218,12 @@ if (isset($_GET['message'])) {
 
 <div class="card">
   <h2 class="title">Welcome Back</h2>
-  <p class="sub">Please login to continue</p>
+  <p class="sub">Please login to continue
   
   <?php
-  if (isset($_GET['error'])) {
-    echo '<div class="error-msg">' . htmlspecialchars($_GET['error']) . '</div>';
+
+  if (isset($error)) {
+    echo '<div class="error-msg">' . htmlspecialchars($error) . '</div>';
   }
   ?>
   
@@ -197,51 +239,6 @@ if (isset($_GET['message'])) {
   <div class="link">Don't have an account? <a href="register.php">Register Now</a></div>
 </div>
 <div class="msg" id="tip"></div>
-
-<?php
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    require_once 'db_connection.php';
-    
-    $username = trim($_POST['username']);
-    $password = $_POST['password'];
-    
-    if (empty($username) || empty($password)) {
-        header("Location: login.php?error=Please fill in all fields");
-        exit();
-    }
-    
-    $sql = "SELECT id, username, password FROM sellers WHERE username = ?";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("s", $username);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    if ($result->num_rows == 1) {
-        $row = $result->fetch_assoc();
-        $stored_hashed_password = $row['password'];
-        
-        if (password_verify($password, $stored_hashed_password)) {
-            $_SESSION['seller_id'] = $row['id'];
-            $_SESSION['username'] = $row['username'];
-            
-            $stmt->close();
-            $conn->close();
-            
-            header("Location: seller.php");
-            exit();
-        } else {
-            header("Location: login.php?error=Invalid username or password");
-            exit();
-        }
-    } else {
-        header("Location: login.php?error=Invalid username or password");
-        exit();
-    }
-    
-    $stmt->close();
-    $conn->close();
-}
-?>
 
 <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
 <script>
