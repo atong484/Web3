@@ -5,6 +5,46 @@ if (!isset($_SESSION['seller_id'])) {
     header("Location: login.php");
     exit();
 }
+
+require_once 'db_connection.php';
+
+$error = '';
+$success = '';
+
+
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    $brand = trim($_POST['brand']);
+    $model = trim($_POST['model']);
+    $year = trim($_POST['year']);
+    $price = trim($_POST['price']);
+    $color = trim($_POST['color']);
+    $seller_id = $_SESSION['seller_id'];
+    
+    
+    if (empty($brand) || empty($model) || empty($year) || empty($price) || empty($color)) {
+        $error = 'Please fill in all fields';
+    } elseif (!is_numeric($year) || $year < 1900 || $year > 2026) {
+        $error = 'Please enter a valid year (1900-2026)';
+    } elseif (!is_numeric($price) || $price <= 0) {
+        $error = 'Please enter a valid price';
+    } else {
+
+        $sql = "INSERT INTO cars (seller_id, brand, model, year, price, color) VALUES (?, ?, ?, ?, ?, ?)";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("isssss", $seller_id, $brand, $model, $year, $price, $color);
+        
+        if ($stmt->execute()) {
+            $success = 'Car added successfully!';
+
+            $_POST = array();
+        } else {
+            $error = 'Error adding car: ' . $conn->error;
+        }
+        
+        $stmt->close();
+    }
+    $conn->close();
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -203,16 +243,6 @@ if (!isset($_SESSION['seller_id'])) {
     </style>
 </head>
 <body>
-<?php
-require_once 'db_connection.php';
-
-if (isset($_GET['success'])) {
-    echo '<div class="success-msg">' . htmlspecialchars($_GET['success']) . '</div>';
-}
-if (isset($_GET['error'])) {
-    echo '<div class="error-msg">' . htmlspecialchars($_GET['error']) . '</div>';
-}
-?>
 <div id="particles"></div>
 <div class="user-info">
     Logged in as: <?php echo htmlspecialchars($_SESSION['username']); ?> | 
@@ -235,30 +265,43 @@ if (isset($_GET['error'])) {
 <div class="container">
     <h2 class="title">Add Car Information</h2>
     
+    <?php if(!empty($success)): ?>
+    <div class="success-msg"><?php echo $success; ?></div>
+    <?php endif; ?>
+    
+    <?php if(!empty($error)): ?>
+    <div class="error-msg"><?php echo $error; ?></div>
+    <?php endif; ?>
+    
     <form method="POST" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>">
         <div class="form-group">
             <label>Car Brand</label>
-            <input type="text" name="brand" placeholder="e.g. Toyota, Honda, BMW" required>
+            <input type="text" name="brand" placeholder="e.g. Toyota, Honda, BMW" 
+                   value="<?php echo isset($_POST['brand']) ? htmlspecialchars($_POST['brand']) : ''; ?>" required>
         </div>
 
         <div class="form-group">
             <label>Car Model</label>
-            <input type="text" name="model" placeholder="e.g. Camry, Civic, X5" required>
+            <input type="text" name="model" placeholder="e.g. Camry, Civic, X5" 
+                   value="<?php echo isset($_POST['model']) ? htmlspecialchars($_POST['model']) : ''; ?>" required>
         </div>
 
         <div class="form-group">
             <label>Manufacture Year</label>
-            <input type="number" name="year" placeholder="e.g. 2020" min="1900" max="2026" required>
+            <input type="number" name="year" placeholder="e.g. 2020" min="1900" max="2026" 
+                   value="<?php echo isset($_POST['year']) ? htmlspecialchars($_POST['year']) : ''; ?>" required>
         </div>
 
         <div class="form-group">
             <label>Price (USD)</label>
-            <input type="number" name="price" placeholder="Enter car price" min="1" step="0.01" required>
+            <input type="number" name="price" placeholder="Enter car price" min="1" step="0.01" 
+                   value="<?php echo isset($_POST['price']) ? htmlspecialchars($_POST['price']) : ''; ?>" required>
         </div>
 
         <div class="form-group">
             <label>Car Color</label>
-            <input type="text" name="color" placeholder="Enter car color" required>
+            <input type="text" name="color" placeholder="Enter car color" 
+                   value="<?php echo isset($_POST['color']) ? htmlspecialchars($_POST['color']) : ''; ?>" required>
         </div>
 
         <button type="submit" class="submit-btn">Submit Car Information</button>
@@ -269,46 +312,6 @@ if (isset($_GET['error'])) {
     </div>
     <div class="msg" id="tip"></div>
 </div>
-
-<?php
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $brand = trim($_POST['brand']);
-    $model = trim($_POST['model']);
-    $year = trim($_POST['year']);
-    $price = trim($_POST['price']);
-    $color = trim($_POST['color']);
-    $seller_id = $_SESSION['seller_id'];
-    
-    if (empty($brand) || empty($model) || empty($year) || empty($price) || empty($color)) {
-        header("Location: add-car.php?error=Please fill in all fields");
-        exit();
-    }
-    
-    if (!is_numeric($year) || $year < 1900 || $year > 2026) {
-        header("Location: add-car.php?error=Please enter a valid year (1900-2026)");
-        exit();
-    }
-    
-    if (!is_numeric($price) || $price <= 0) {
-        header("Location: add-car.php?error=Please enter a valid price");
-        exit();
-    }
-    
-    $sql = "INSERT INTO cars (seller_id, brand, model, year, price, color) VALUES (?, ?, ?, ?, ?, ?)";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("isssss", $seller_id, $brand, $model, $year, $price, $color);
-    
-    if ($stmt->execute()) {
-        $stmt->close();
-        $conn->close();
-        header("Location: add-car.php?success=Car added successfully!");
-        exit();
-    } else {
-        header("Location: add-car.php?error=Error: " . urlencode($conn->error));
-        exit();
-    }
-}
-?>
 
 <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
 <script>
